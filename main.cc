@@ -87,24 +87,69 @@ int main(int argc, char *argv[]) {
 	}
 	file.close();
 	
-    
     std::map<std::string, int> wordHistogram;
 
-    for(auto line : textInMemory){ 
+    // Solucion secuencial
+    if(threads == 1){
+        for(auto line : textInMemory){ 
         // Dividir cada línea del texto en palabras
         std::vector<std::string> words = splitText(line); 
         
         // Incrementar el conteo de cada palabra en el histograma
-        for (const std::string &word : words) {
-			wordHistogram[word]++;
+            for (const std::string &word : words) {
+			    wordHistogram[word]++;
+            }
         }
     }
+    else{
 
+        // Solucion paralela
+    
+        int lineaXthread = textInMemory.size() / threads;   // Cantidad de lineas que va a procesar cada thread.
+        int sobrantes = textInMemory.size() % threads;      // Cantidad de lineas que sobrantes de las lineas repartidas.
+        int inicio = 0;                                     // Indice de inicio del thread. (El primer thread comienza en 0)
+        int fin = lineaXthread;                             // Indice de fin del thread. (El primer thread termina en la cantidad de lineas que va a procesar)
+
+        std::mutex mutex;                   // Mutex para evitar condicion de carrera al incrementar el conteo de una palabra en el histograma
+        std::vector<std::thread> hilos;     // Vector de threads llamado hilos
+        
+        for(int i = 0; i < threads; i++){       // Se inicia el ciclo para crear cada thread
+        
+            // Logica para repartir las lineas por cada thread
+            inicio = inicio + i * lineaXthread;
+            fin = fin + i * lineaXthread;
+            if(i == threads - 1){               // El ultimo thread se utiliza para procesar las lineas sobrantes
+                fin += sobrantes;
+            }
+
+            // Se crea el thread utilizando la funcion threads.emplace_back
+            hilos.emplace_back([&mutex, &wordHistogram, &textInMemory, inicio, fin](){
+                for(int j = inicio; j < fin; j++){
+
+                    // Rescatar una linea del texto en cada iteracion
+                    auto line = textInMemory[j];                                     
+                    // Dividir cada línea del texto en palabras
+                    std::vector<std::string> words = splitText(line); 
+        
+                    // Incrementar el conteo de cada palabra en el histograma
+                    for (const std::string &word : words) {
+                        std::lock_guard<std::mutex> lock(mutex);    // Se utiliza un lock_guard para evitar que otro thread acceda al histograma para actualizarlo.
+                        wordHistogram[word]++;
+                    }
+                }
+            });
+        }
+
+        for(auto &thread : hilos){      // Se espera a que todos los threads terminen
+            thread.join();
+        }
+
+    }
+    
     // Mostrar el histograma de palabras
     for (const auto &entry : wordHistogram) {
         std::cout << entry.first << ": " << entry.second << std::endl;
     }
-
 
     return(EXIT_SUCCESS);
 }
