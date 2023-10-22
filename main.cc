@@ -51,7 +51,6 @@ int main(int argc, char *argv[]) {
         // --threads N
         case 't':
             threads = std::stoi(optarg); // Se transforma el argumento a entero utilizando stoi (String to Integer)
-            std::cout << "Se utilizarán " << threads << " threads." << std::endl;
             break;
         
         // --file FILENAME
@@ -61,9 +60,9 @@ int main(int argc, char *argv[]) {
         // --help
         case 'h':
             std::cout << "Modo de Uso: " << argv[0] << " --threads N --file FILENAME [--help]" << std::endl;
-            std::cout << "--threads: cantidad de threads a utilizar. Si es 1, entonces ejecuta la versión secuencial." << std::endl;
-            std::cout << "--file: archivo a procesar." << std::endl;
-            std::cout << "--help: muestra este mensaje y termina." << std::endl;
+            std::cout << "             --threads: cantidad de threads a utilizar. Si es 1, entonces ejecuta la versión secuencial." << std::endl;
+            std::cout << "             --file: archivo a procesar." << std::endl;
+            std::cout << "             --help: muestra este mensaje y termina." << std::endl;
             return 0;
 
         default:
@@ -105,27 +104,21 @@ int main(int argc, char *argv[]) {
 
         // Solucion paralela
     
-        int lineaXthread = textInMemory.size() / threads;   // Cantidad de lineas que va a procesar cada thread.
-        int sobrantes = textInMemory.size() % threads;      // Cantidad de lineas que sobrantes de las lineas repartidas.
-        int inicio = 0;                                     // Indice de inicio del thread. (El primer thread comienza en 0)
-        int fin = lineaXthread;                             // Indice de fin del thread. (El primer thread termina en la cantidad de lineas que va a procesar)
+        int lineaXthread = textInMemory.size() / threads;                 // Cantidad de lineas que va a procesar cada thread.
+        int sobrantes = textInMemory.size() % threads;                    // Cantidad de lineas que sobraron de las lineas repartidas.
 
-        std::mutex mutex;                   // Mutex para evitar condicion de carrera al incrementar el conteo de una palabra en el histograma
-        std::vector<std::thread> hilos;     // Vector de threads llamado hilos
+        std::mutex mutex;                                                 // Mutex para evitar condicion de carrera al incrementar el conteo de una palabra en el histograma
+        std::vector<std::thread> hilos;                                   // Vector de threads llamado hilos
         
-        for(int i = 0; i < threads; i++){       // Se inicia el ciclo para crear cada thread
+        for(int i = 0; i < threads; i++){                                 // Se inicia el ciclo para crear cada thread
         
             // Logica para repartir las lineas por cada thread
-            inicio = inicio + i * lineaXthread;
-            fin = fin + i * lineaXthread;
-            if(i == threads - 1){               // El ultimo thread se utiliza para procesar las lineas sobrantes
-                fin += sobrantes;
-            }
+            int inicio = i * lineaXthread;                                // Comienza desde 0 en el primer thread
+            int fin = (i + 1) * lineaXthread + (i < sobrantes ? 1 : 0);   // Avanza en una unidad (segun cantidad de threads) y le suma una linea si es que aun sobran.
 
             // Se crea el thread utilizando la funcion threads.emplace_back
-            hilos.emplace_back([&mutex, &wordHistogram, &textInMemory, inicio, fin](){
-                for(int j = inicio; j < fin; j++){
-
+            hilos.emplace_back( [ &mutex, &wordHistogram, &textInMemory, inicio, fin ] () {
+                for (int j = inicio; j < fin; j++){
                     // Rescatar una linea del texto en cada iteracion
                     auto line = textInMemory[j];                                     
                     // Dividir cada línea del texto en palabras
@@ -133,14 +126,14 @@ int main(int argc, char *argv[]) {
         
                     // Incrementar el conteo de cada palabra en el histograma
                     for (const std::string &word : words) {
-                        std::lock_guard<std::mutex> lock(mutex);    // Se utiliza un lock_guard para evitar que otro thread acceda al histograma para actualizarlo.
-                        wordHistogram[word]++;
+                        std::lock_guard<std::mutex> lock(mutex);         // Se utiliza un lock_guard para evitar que otro thread acceda al histograma para actualizarlo.
+                        wordHistogram[word]++;                           //   evitando la condicion de carrera
                     }
                 }
             });
         }
 
-        for(auto &thread : hilos){      // Se espera a que todos los threads terminen
+        for(auto &thread : hilos){     // Se espera a que todos los threads terminen
             thread.join();
         }
 
