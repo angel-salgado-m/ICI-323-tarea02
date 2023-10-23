@@ -50,12 +50,12 @@ int main(int argc, char *argv[]) {
         switch (opt) {
         // --threads N
         case 't':
-            threads = std::stoi(optarg); // Se transforma el argumento a entero utilizando stoi (String to Integer)
+            threads = std::stoi(optarg); // Se transforma el argumento a entero utilizando stoi (String to Integer) y se sobreescribe el valor original 1 (solucion secuencial)
             break;
         
         // --file FILENAME
         case 'f':
-            fileName = optarg;
+            fileName = optarg;          // Se guarda la el nombre y/o direccion del archivo para abrirlo despues
             break;
         // --help
         case 'h':
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> textInMemory;
     std::string line;
 
-    
+    // Se guardan las lineas del archivo en memoria
     while (std::getline(file, line)) { 
 		textInMemory.push_back(line); 
 	}
@@ -102,8 +102,9 @@ int main(int argc, char *argv[]) {
     }
     else{
 
-        // Solucion paralela
+        // SOLUCION PARALELA
     
+        // Logica para dividir las lineas por cantidad de threads
         int lineaXthread = textInMemory.size() / threads;                 // Cantidad de lineas que va a procesar cada thread.
         int sobrantes = textInMemory.size() % threads;                    // Cantidad de lineas que sobraron de las lineas repartidas.
 
